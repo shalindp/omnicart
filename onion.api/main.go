@@ -7,19 +7,16 @@ import (
 	"syscall"
 
 	"onion.api/persistence"
+	"onion.api/utils"
+
+	"onion.api/presentation"
 )
 
 func main() {
-	loadEnvironmentVariables()
-
-	databaseConnectionString := os.Getenv("DATABASE_URL")
-	if databaseConnectionString == "" {
-		fmt.Println("Error: DATABASE_URL environment variable is required")
-		os.Exit(1)
-	}
+	environmentVariables := utils.LoadEnvironmentVariables()
 
 	persistenceSettings := persistence.PersistenceSettings{
-		ConnectionString: databaseConnectionString,
+		ConnectionString: environmentVariables.DatabaseURL,
 	}
 
 	persistenceModule, error := persistence.Initialize(persistenceSettings)
@@ -29,7 +26,18 @@ func main() {
 	}
 	defer persistenceModule.Close()
 
-	fmt.Println("Application started successfully")
+	presentationSettings := presentation.PresentationSettings{}
+	presentationModule := presentation.Initialize(presentationSettings)
+
+	go func() {
+		error := presentationModule.Start(":8080")
+		if error != nil {
+			fmt.Printf("Error starting server: %v\n", error)
+			os.Exit(1)
+		}
+	}()
+
+	fmt.Println("Application started on :8080")
 
 	quitChannel := make(chan os.Signal, 1)
 	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
