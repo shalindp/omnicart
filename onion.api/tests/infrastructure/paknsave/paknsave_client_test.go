@@ -9,6 +9,9 @@ import (
 	"onion.api/infrastrucre/common"
 	"onion.api/infrastrucre/paknsave"
 	paknsaveresponses "onion.api/infrastrucre/paknsave/responses"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPakNSaveClient_GetStores(testing *testing.T) {
@@ -23,35 +26,17 @@ func TestPakNSaveClient_GetStores(testing *testing.T) {
 	)
 
 	stores, error := client.GetStores(context.Background())
-	if error != nil {
-		testing.Fatalf("GetStores returned error: %v", error)
-	}
-
-	if len(stores) == 0 {
-		testing.Fatal("GetStores returned no stores")
-	}
-
+	require.NoError(testing, error)
+	require.NotEmpty(testing, stores, "PakNSave returned no stores")
 	testing.Logf("PakNSave returned %d stores", len(stores))
 
 	for index, store := range stores {
-		if store.Retailer == "" {
-			testing.Errorf("store[%d]: Retailer is empty", index)
-		}
-		if store.Id == "" {
-			testing.Errorf("store[%d]: Id is empty", index)
-		}
-		if store.Name == "" {
-			testing.Errorf("store[%d]: Name is empty", index)
-		}
-		if store.Address == "" {
-			testing.Errorf("store[%d]: Address is empty", index)
-		}
-		if store.Latitude == 0 {
-			testing.Errorf("store[%d]: Latitude is zero", index)
-		}
-		if store.Longitude == 0 {
-			testing.Errorf("store[%d]: Longitude is zero", index)
-		}
+		assert.NotEmpty(testing, store.Retailer, "store[%d]: Retailer is empty", index)
+		assert.NotEmpty(testing, store.Id, "store[%d]: Id is empty", index)
+		assert.NotEmpty(testing, store.Name, "store[%d]: Name is empty", index)
+		assert.NotEmpty(testing, store.Address, "store[%d]: Address is empty", index)
+		assert.NotZero(testing, store.Latitude, "store[%d]: Latitude is zero", index)
+		assert.NotZero(testing, store.Longitude, "store[%d]: Longitude is zero", index)
 	}
 }
 

@@ -112,6 +112,7 @@ Each layer has a **Module file** (e.g. `ApplicationModule.go`, `InfrastructureMo
 - **HARD RULE: All tests live in the `tests/` directory.** Never place `_test.go` files alongside source files. No exceptions.
 - Mirror the source directory structure inside `tests/` (e.g. `tests/persistence/`, `tests/aplication/commands/`).
 - Test packages use the `_test` suffix (e.g. `package persistence_test`) and import the source package.
+- **Always run tests with `-count=1`** to disable caching. Set `GOFLAGS=-count=1` in your shell or use `go test -count=1`.
 
 ## Naming Conventions
 
