@@ -7,7 +7,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type PresentationSettings struct{}
+type PresentationSettings struct {
+	Port string
+}
 
 type PresentationModule struct {
 	ServerInstance *echo.Echo
@@ -25,6 +27,6 @@ func Initialize(settings PresentationSettings, infrastructureModule *infrastrucr
 	}
 }
 
-func (module *PresentationModule) Start(address string) error {
-	return module.ServerInstance.Start(address)
+func (module *PresentationModule) Start(settings PresentationSettings) error {
+	return module.ServerInstance.Start(settings.Port)
 }

@@ -5,23 +5,17 @@ import (
 	"os"
 	"strconv"
 
+	"onion.api/infrastrucre"
+	"onion.api/persistence"
+	"onion.api/presentation"
+
 	"github.com/joho/godotenv"
 )
 
-type RetailerEnvironmentVariables struct {
-	ReferenceStore      string
-	DegreeOfParallelism int
-	NumOfRetries        int
-	DelayInMs           int
-	DelayMaxInMs        int
-	TimeoutInMs         int
-}
-
 type EnvironmentVariables struct {
-	DatabaseURL   string
-	TestDatabaseURL string
-	PakNSave    RetailerEnvironmentVariables
-	Woolworths  RetailerEnvironmentVariables
+	PersistenceSettings    persistence.PersistenceSettings
+	InfrastructureSettings infrastrucre.InfrastructureSettings
+	PresentationSettings   presentation.PresentationSettings
 }
 
 func LoadEnvironmentVariables() EnvironmentVariables {
@@ -31,29 +25,43 @@ func LoadEnvironmentVariables() EnvironmentVariables {
 	}
 
 	return EnvironmentVariables{
-		DatabaseURL:       getEnv("DATABASE_URL"),
-		TestDatabaseURL:   getEnv("TEST_DATABASE_URL"),
-		PakNSave: RetailerEnvironmentVariables{
-			ReferenceStore:      getEnv("PAKNSAVE_REFERENCE_STORE"),
-			DegreeOfParallelism: getEnvInt("PAKNSAVE_DEGREE_OF_PARALLELISM", 12),
-			NumOfRetries:        getEnvInt("PAKNSAVE_NUM_OF_RETRIES", 3),
-			DelayInMs:           getEnvInt("PAKNSAVE_DELAY_IN_MS", 400),
-			DelayMaxInMs:        getEnvInt("PAKNSAVE_DELAY_MAX_IN_MS", 600),
-			TimeoutInMs:         getEnvInt("PAKNSAVE_TIMEOUT_IN_MS", 30000),
+		PersistenceSettings: persistence.PersistenceSettings{
+			ConnectionString: getEnv("DATABASE_URL"),
 		},
-		Woolworths: RetailerEnvironmentVariables{
-			ReferenceStore:      getEnv("WOOLWORTHS_REFERENCE_STORE"),
-			DegreeOfParallelism: getEnvInt("WOOLWORTHS_DEGREE_OF_PARALLELISM", 6),
-			NumOfRetries:        getEnvInt("WOOLWORTHS_NUM_OF_RETRIES", 3),
-			DelayInMs:           getEnvInt("WOOLWORTHS_DELAY_IN_MS", 400),
-			DelayMaxInMs:        getEnvInt("WOOLWORTHS_DELAY_MAX_IN_MS", 600),
-			TimeoutInMs:         getEnvInt("WOOLWORTHS_TIMEOUT_IN_MS", 30000),
+		InfrastructureSettings: infrastrucre.InfrastructureSettings{
+			PakNSave: infrastrucre.RetailerSettings{
+				ReferenceStore:      getEnv("PAKNSAVE_REFERENCE_STORE"),
+				DegreeOfParallelism: getEnvInt("PAKNSAVE_DEGREE_OF_PARALLELISM", 12),
+				NumOfRetries:        getEnvInt("PAKNSAVE_NUM_OF_RETRIES", 3),
+				DelayInMs:           getEnvInt("PAKNSAVE_DELAY_IN_MS", 400),
+				DelayMaxInMs:        getEnvInt("PAKNSAVE_DELAY_MAX_IN_MS", 600),
+				TimeoutInMs:         getEnvInt("PAKNSAVE_TIMEOUT_IN_MS", 30000),
+			},
+			Woolworths: infrastrucre.RetailerSettings{
+				ReferenceStore:      getEnv("WOOLWORTHS_REFERENCE_STORE"),
+				DegreeOfParallelism: getEnvInt("WOOLWORTHS_DEGREE_OF_PARALLELISM", 6),
+				NumOfRetries:        getEnvInt("WOOLWORTHS_NUM_OF_RETRIES", 3),
+				DelayInMs:           getEnvInt("WOOLWORTHS_DELAY_IN_MS", 400),
+				DelayMaxInMs:        getEnvInt("WOOLWORTHS_DELAY_MAX_IN_MS", 600),
+				TimeoutInMs:         getEnvInt("WOOLWORTHS_TIMEOUT_IN_MS", 30000),
+			},
+		},
+		PresentationSettings: presentation.PresentationSettings{
+			Port: getEnvWithDefault("PORT", ":8080"),
 		},
 	}
 }
 
 func getEnv(key string) string {
 	return os.Getenv(key)
+}
+
+func getEnvWithDefault(key string, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }
 
 func getEnvInt(key string, defaultValue int) int {

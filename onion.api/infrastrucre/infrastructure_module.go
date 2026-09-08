@@ -33,41 +33,34 @@ type InfrastructureModule struct {
 func Initialize(settings InfrastructureSettings) (*InfrastructureModule, error) {
 	logger := &stdoutLogger{}
 
-	paknsaveHttpClient := &http.Client{Timeout: 30 * time.Second}
 	paknsaveSessionStore := common.NewInMemorySessionStore()
 	paknsaveSession := paknsaveresponses.NewPakNSaveSessionProvider(paknsaveSessionStore)
-	paknsaveRetailer := common.NewBaseRetailer(common.RetailClientConfig{
-		BaseUrl:             "https://api-prod.paknsave.co.nz/v1/edge",
-		DegreeOfParallelism: settings.PakNSave.DegreeOfParallelism,
-		NumOfRetries:        settings.PakNSave.NumOfRetries,
-		DelayInMs:           settings.PakNSave.DelayInMs,
-		DelayMaxInMs:        settings.PakNSave.DelayMaxInMs,
-		Timeout:             time.Duration(settings.PakNSave.TimeoutInMs) * time.Millisecond,
-		Session:             paknsaveSession,
-		Name:                "paknsave",
-		Logger:              logger,
-	}, paknsaveHttpClient)
+
+	paknsaveHttpClient := &http.Client{Timeout: 30 * time.Second}
+	paknsaveClient := paknsave.NewPakNSaveClient(
+		settings.PakNSave.ReferenceStore,
+		settings.PakNSave.DegreeOfParallelism,
+		settings.PakNSave.NumOfRetries,
+		settings.PakNSave.DelayInMs,
+		settings.PakNSave.DelayMaxInMs,
+		settings.PakNSave.TimeoutInMs,
+		paknsaveHttpClient, paknsaveSession, logger,
+	)
 
 	woolworthsHttpClient := &http.Client{Timeout: 30 * time.Second}
-	woolworthsRetailer := common.NewBaseRetailer(common.RetailClientConfig{
-		BaseUrl:             woolworths.DefaultBaseUrl,
-		DegreeOfParallelism: settings.Woolworths.DegreeOfParallelism,
-		NumOfRetries:        settings.Woolworths.NumOfRetries,
-		DelayInMs:           settings.Woolworths.DelayInMs,
-		DelayMaxInMs:        settings.Woolworths.DelayMaxInMs,
-		Timeout:             time.Duration(settings.Woolworths.TimeoutInMs) * time.Millisecond,
-		DefaultHeaders: map[string][]string{
-			"x-requested-with": {woolworths.RequestedWithHeader},
-			"Accept":           {"application/json"},
-		},
-		Session: common.NoOpSession{},
-		Name:    "woolworths",
-		Logger:  logger,
-	}, woolworthsHttpClient)
+	woolworthsClient := woolworths.NewWoolworthsClient(
+		settings.Woolworths.ReferenceStore,
+		settings.Woolworths.DegreeOfParallelism,
+		settings.Woolworths.NumOfRetries,
+		settings.Woolworths.DelayInMs,
+		settings.Woolworths.DelayMaxInMs,
+		settings.Woolworths.TimeoutInMs,
+		woolworthsHttpClient, logger,
+	)
 
 	return &InfrastructureModule{
-		PakNSaveClient:   paknsave.NewPakNSaveClient(paknsaveRetailer, settings.PakNSave.ReferenceStore),
-		WoolworthsClient: woolworths.NewWoolworthsClient(woolworthsRetailer),
+		PakNSaveClient:   paknsaveClient,
+		WoolworthsClient: woolworthsClient,
 	}, nil
 }
 

@@ -2,6 +2,8 @@ package paknsave
 
 import (
 	"context"
+	"net/http"
+	"time"
 
 	common "onion.api/infrastrucre/common"
 	"onion.api/infrastrucre/common/responses"
@@ -12,16 +14,25 @@ type PakNSaveClient struct {
 	storeName string
 }
 
-func NewPakNSaveClient(retailer *common.BaseRetailer, storeName string) *PakNSaveClient {
-	return &PakNSaveClient{
-		BaseRetailer: retailer,
-		storeName:    storeName,
-	}
+func NewPakNSaveClient(storeName string, degreeOfParallelism, numOfRetries, delayInMs, delayMaxInMs, timeoutInMs int, httpClient *http.Client, session common.RetailSession, logger common.Logger) *PakNSaveClient {
+	retailer := common.NewBaseRetailer(common.RetailClientConfig{
+		BaseUrl:             "https://api-prod.paknsave.co.nz/v1/edge",
+		DegreeOfParallelism: degreeOfParallelism,
+		NumOfRetries:        numOfRetries,
+		DelayInMs:           delayInMs,
+		DelayMaxInMs:        delayMaxInMs,
+		Timeout:             time.Duration(timeoutInMs) * time.Millisecond,
+		Session:             session,
+		Name:                "paknsave",
+		Logger:              logger,
+	}, httpClient)
+
+	return &PakNSaveClient{BaseRetailer: retailer, storeName: storeName}
 }
 
 func (client *PakNSaveClient) GetStores(requestContext context.Context) ([]responses.StoreResponse, error) {
 	results, executeError := client.Execute(requestContext, []common.RetailClientRequest{
-		{Method: "GET", Path: ApiBaseUrl + "/store", Label: "paknsave stores"},
+		{Method: "GET", Path: "/store", Label: "paknsave stores"},
 	})
 	if executeError != nil {
 		return nil, responses.NewScrapingExceptionResponse("paknsave: fetch stores", executeError)

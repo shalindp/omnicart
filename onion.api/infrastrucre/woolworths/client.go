@@ -4,25 +4,45 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
 
 	common "onion.api/infrastrucre/common"
 	"onion.api/infrastrucre/common/responses"
 	woolworthsresponses "onion.api/infrastrucre/woolworths/responses"
 )
 
+var cdxUrl = "https://api.cdx.nz/site-location/api/v1/sites"
+
 type WoolworthsClient struct {
 	*common.BaseRetailer
+	storeName string
 }
 
-func NewWoolworthsClient(retailer *common.BaseRetailer) *WoolworthsClient {
-	return &WoolworthsClient{BaseRetailer: retailer}
+func NewWoolworthsClient(storeName string, degreeOfParallelism, numOfRetries, delayInMs, delayMaxInMs, timeoutInMs int, httpClient *http.Client, logger common.Logger) *WoolworthsClient {
+	retailer := common.NewBaseRetailer(common.RetailClientConfig{
+		BaseUrl:             "https://www.woolworths.co.nz",
+		DegreeOfParallelism: degreeOfParallelism,
+		NumOfRetries:        numOfRetries,
+		DelayInMs:           delayInMs,
+		DelayMaxInMs:        delayMaxInMs,
+		Timeout:             time.Duration(timeoutInMs) * time.Millisecond,
+		DefaultHeaders: map[string][]string{
+			"User-Agent": {common.DefaultUserAgent},
+		},
+		Session: common.NoOpSession{},
+		Name:    "woolworths",
+		Logger:  logger,
+	}, httpClient)
+
+	return &WoolworthsClient{BaseRetailer: retailer, storeName: storeName}
 }
 
 func (client *WoolworthsClient) GetStores(requestContext context.Context) ([]responses.StoreResponse, error) {
 	results, executeError := client.Execute(requestContext, []common.RetailClientRequest{
 		{
 			Method: "GET",
-			Path:   CdxSitesUrl,
+			Path:   cdxUrl,
 			Label:  "woolworths sites",
 			Headers: map[string][]string{
 				"x-requested-with": {""},
