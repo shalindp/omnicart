@@ -7,20 +7,21 @@ import (
 
 	common "onion.api/infrastrucre/common"
 	"onion.api/infrastrucre/paknsave"
+	paknsaveresponses "onion.api/infrastrucre/paknsave/responses"
 	"onion.api/infrastrucre/woolworths"
 )
 
 type RetailerSettings struct {
-	ReferenceStore       string
-	DegreeOfParallelism  int
-	NumOfRetries         int
-	DelayInMs            int
-	DelayMaxInMs         int
-	TimeoutInMs          int
+	ReferenceStore      string
+	DegreeOfParallelism int
+	NumOfRetries        int
+	DelayInMs           int
+	DelayMaxInMs        int
+	TimeoutInMs         int
 }
 
 type InfrastructureSettings struct {
-	PakNSave  RetailerSettings
+	PakNSave   RetailerSettings
 	Woolworths RetailerSettings
 }
 
@@ -30,33 +31,42 @@ type InfrastructureModule struct {
 }
 
 func Initialize(settings InfrastructureSettings) (*InfrastructureModule, error) {
-	httpClient := &http.Client{Timeout: 30 * time.Second}
 	logger := &stdoutLogger{}
 
-	pakNSaveRetailer := common.NewBaseRetailer(common.RetailClientConfig{
-		BaseUrl:             "https://www.paknsave.co.nz",
+	paknsaveHttpClient := &http.Client{Timeout: 30 * time.Second}
+	paknsaveSessionStore := common.NewInMemorySessionStore()
+	paknsaveSession := paknsaveresponses.NewPakNSaveSessionProvider(paknsaveSessionStore)
+	paknsaveRetailer := common.NewBaseRetailer(common.RetailClientConfig{
+		BaseUrl:             "https://api-prod.paknsave.co.nz/v1/edge",
 		DegreeOfParallelism: settings.PakNSave.DegreeOfParallelism,
 		NumOfRetries:        settings.PakNSave.NumOfRetries,
 		DelayInMs:           settings.PakNSave.DelayInMs,
 		DelayMaxInMs:        settings.PakNSave.DelayMaxInMs,
 		Timeout:             time.Duration(settings.PakNSave.TimeoutInMs) * time.Millisecond,
+		Session:             paknsaveSession,
 		Name:                "paknsave",
 		Logger:              logger,
-	}, httpClient)
+	}, paknsaveHttpClient)
 
+	woolworthsHttpClient := &http.Client{Timeout: 30 * time.Second}
 	woolworthsRetailer := common.NewBaseRetailer(common.RetailClientConfig{
-		BaseUrl:             "https://www.woolworths.co.nz",
+		BaseUrl:             woolworths.DefaultBaseUrl,
 		DegreeOfParallelism: settings.Woolworths.DegreeOfParallelism,
 		NumOfRetries:        settings.Woolworths.NumOfRetries,
 		DelayInMs:           settings.Woolworths.DelayInMs,
 		DelayMaxInMs:        settings.Woolworths.DelayMaxInMs,
 		Timeout:             time.Duration(settings.Woolworths.TimeoutInMs) * time.Millisecond,
-		Name:                "woolworths",
-		Logger:              logger,
-	}, httpClient)
+		DefaultHeaders: map[string][]string{
+			"x-requested-with": {woolworths.RequestedWithHeader},
+			"Accept":           {"application/json"},
+		},
+		Session: common.NoOpSession{},
+		Name:    "woolworths",
+		Logger:  logger,
+	}, woolworthsHttpClient)
 
 	return &InfrastructureModule{
-		PakNSaveClient:   paknsave.NewPakNSaveClient(pakNSaveRetailer, settings.PakNSave.ReferenceStore),
+		PakNSaveClient:   paknsave.NewPakNSaveClient(paknsaveRetailer, settings.PakNSave.ReferenceStore),
 		WoolworthsClient: woolworths.NewWoolworthsClient(woolworthsRetailer),
 	}, nil
 }
