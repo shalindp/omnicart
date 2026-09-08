@@ -6,10 +6,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	"onion.api/infrastrucre"
 	"onion.api/persistence"
-	"onion.api/utils"
-
 	"onion.api/presentation"
+	"onion.api/utils"
 )
 
 func main() {
@@ -26,8 +26,33 @@ func main() {
 	}
 	defer persistenceModule.Close()
 
+	infrastructureSettings := infrastrucre.InfrastructureSettings{
+		PakNSave: infrastrucre.RetailerSettings{
+			ReferenceStore:      environmentVariables.PakNSave.ReferenceStore,
+			DegreeOfParallelism: environmentVariables.PakNSave.DegreeOfParallelism,
+			NumOfRetries:        environmentVariables.PakNSave.NumOfRetries,
+			DelayInMs:           environmentVariables.PakNSave.DelayInMs,
+			DelayMaxInMs:        environmentVariables.PakNSave.DelayMaxInMs,
+			TimeoutInMs:         environmentVariables.PakNSave.TimeoutInMs,
+		},
+		Woolworths: infrastrucre.RetailerSettings{
+			ReferenceStore:      environmentVariables.Woolworths.ReferenceStore,
+			DegreeOfParallelism: environmentVariables.Woolworths.DegreeOfParallelism,
+			NumOfRetries:        environmentVariables.Woolworths.NumOfRetries,
+			DelayInMs:           environmentVariables.Woolworths.DelayInMs,
+			DelayMaxInMs:        environmentVariables.Woolworths.DelayMaxInMs,
+			TimeoutInMs:         environmentVariables.Woolworths.TimeoutInMs,
+		},
+	}
+
+	infrastructureModule, error := infrastrucre.Initialize(infrastructureSettings)
+	if error != nil {
+		fmt.Printf("Error initializing infrastructure layer: %v\n", error)
+		os.Exit(1)
+	}
+
 	presentationSettings := presentation.PresentationSettings{}
-	presentationModule := presentation.Initialize(presentationSettings)
+	presentationModule := presentation.Initialize(presentationSettings, infrastructureModule)
 
 	go func() {
 		error := presentationModule.Start(":8080")
