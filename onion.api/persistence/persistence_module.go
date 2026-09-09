@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"onion.api/persistence/entities"
 )
@@ -42,6 +43,26 @@ func (module *PersistenceModule) Queries() *entities.Queries {
 
 func (module *PersistenceModule) Pool() *pgxpool.Pool {
 	return module.pool
+}
+
+func (module *PersistenceModule) InTransaction(requestContext context.Context, transactionFunction func(queries *entities.Queries, transaction pgx.Tx) error) error {
+	transaction, transactionError := module.pool.Begin(requestContext)
+	if transactionError != nil {
+		return fmt.Errorf("begin transaction: %w", transactionError)
+	}
+
+	transactionQueries := entities.New(transaction)
+	functionError := transactionFunction(transactionQueries, transaction)
+
+	if functionError != nil {
+		_ = transaction.Rollback(requestContext)
+		return functionError
+	}
+
+	if commitError := transaction.Commit(requestContext); commitError != nil {
+		return fmt.Errorf("commit transaction: %w", commitError)
+	}
+	return nil
 }
 
 func (module *PersistenceModule) Close() {
