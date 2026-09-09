@@ -4,6 +4,9 @@ import (
 	"testing"
 
 	"onion.api/persistence"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInitializeWithInvalidConnectionStringReturnsError(testing *testing.T) {
@@ -13,9 +16,9 @@ func TestInitializeWithInvalidConnectionStringReturnsError(testing *testing.T) {
 
 	module, error := persistence.Initialize(settings)
 
-	if error == nil {
+	require.Error(testing, error)
+	if module != nil {
 		module.Close()
-		testing.Fatal("expected error for invalid connection string, got nil")
 	}
 }
 
@@ -26,9 +29,9 @@ func TestInitializeWithEmptyConnectionStringReturnsError(testing *testing.T) {
 
 	module, error := persistence.Initialize(settings)
 
-	if error == nil {
+	require.Error(testing, error)
+	if module != nil {
 		module.Close()
-		testing.Fatal("expected error for empty connection string, got nil")
 	}
 }
 
@@ -39,9 +42,9 @@ func TestInitializeWithUnreachableHostReturnsError(testing *testing.T) {
 
 	module, error := persistence.Initialize(settings)
 
-	if error == nil {
+	require.Error(testing, error)
+	if module != nil {
 		module.Close()
-		testing.Fatal("expected error for unreachable host, got nil")
 	}
 }
 
@@ -52,8 +55,9 @@ func TestInitializeWithInvalidHostReturnsError(testing *testing.T) {
 
 	module, error := persistence.Initialize(settings)
 
-	if error == nil {
+	require.Error(testing, error)
+	if module != nil {
 		module.Close()
-		testing.Fatal("expected error for invalid host, got nil")
 	}
+	assert.False(testing, error == nil)
 }

@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"onion.api/infrastrucre/common"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRetailClient_SingleRequest(testing *testing.T) {
@@ -33,18 +36,10 @@ func TestRetailClient_SingleRequest(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/test"},
 	})
-	if error != nil {
-		testing.Fatal(error)
-	}
-	if len(results) != 1 {
-		testing.Fatalf("expected 1 result, got %d", len(results))
-	}
-	if !results[0].IsOk() {
-		testing.Fatalf("expected ok, got error: %v", results[0].Error)
-	}
-	if string(results[0].Response.Body) != "hello" {
-		testing.Fatalf("expected 'hello', got '%s'", string(results[0].Response.Body))
-	}
+	require.NoError(testing, error)
+	require.Len(testing, results, 1)
+	require.True(testing, results[0].IsOk(), "expected ok, got error: %v", results[0].Error)
+	assert.Equal(testing, "hello", string(results[0].Response.Body))
 }
 
 func TestRetailClient_MultipleRequests(testing *testing.T) {
@@ -71,17 +66,11 @@ func TestRetailClient_MultipleRequests(testing *testing.T) {
 	}
 
 	results, error := client.Execute(testing.Context(), requestList)
-	if error != nil {
-		testing.Fatal(error)
-	}
+	require.NoError(testing, error)
 	for index, result := range results {
-		if !result.IsOk() {
-			testing.Fatalf("request %d: expected ok, got error: %v", index, result.Error)
-		}
+		assert.True(testing, result.IsOk(), "request %d: expected ok, got error: %v", index, result.Error)
 	}
-	if atomic.LoadInt32(&count) != 10 {
-		testing.Fatalf("expected 10 requests, got %d", atomic.LoadInt32(&count))
-	}
+	assert.Equal(testing, int32(10), atomic.LoadInt32(&count))
 }
 
 func TestRetailClient_RetryOn500(testing *testing.T) {
@@ -109,15 +98,9 @@ func TestRetailClient_RetryOn500(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/retry"},
 	})
-	if error != nil {
-		testing.Fatal(error)
-	}
-	if !results[0].IsOk() {
-		testing.Fatalf("expected ok after retries, got error: %v", results[0].Error)
-	}
-	if results[0].Attempts != 3 {
-		testing.Fatalf("expected 3 attempts, got %d", results[0].Attempts)
-	}
+	require.NoError(testing, error)
+	assert.True(testing, results[0].IsOk(), "expected ok after retries, got error: %v", results[0].Error)
+	assert.Equal(testing, 3, results[0].Attempts)
 }
 
 func TestRetailClient_ExhaustsRetries(testing *testing.T) {
@@ -138,12 +121,8 @@ func TestRetailClient_ExhaustsRetries(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/fail"},
 	})
-	if error == nil {
-		testing.Fatal("expected error after exhausting retries")
-	}
-	if results[0].Attempts != 3 {
-		testing.Fatalf("expected 3 attempts, got %d", results[0].Attempts)
-	}
+	assert.Error(testing, error)
+	assert.Equal(testing, 3, results[0].Attempts)
 }
 
 func TestRetailClient_NonRetryableStatus(testing *testing.T) {
@@ -164,12 +143,8 @@ func TestRetailClient_NonRetryableStatus(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/notfound"},
 	})
-	if error == nil {
-		testing.Fatal("expected error for 404")
-	}
-	if results[0].Attempts != 1 {
-		testing.Fatalf("expected 1 attempt for non-retryable, got %d", results[0].Attempts)
-	}
+	assert.Error(testing, error)
+	assert.Equal(testing, 1, results[0].Attempts)
 }
 
 func TestRetailClient_AbsoluteUrl(testing *testing.T) {
@@ -190,12 +165,8 @@ func TestRetailClient_AbsoluteUrl(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: server.URL + "/abs"},
 	})
-	if error != nil {
-		testing.Fatal(error)
-	}
-	if !results[0].IsOk() {
-		testing.Fatalf("expected ok, got error: %v", results[0].Error)
-	}
+	require.NoError(testing, error)
+	assert.True(testing, results[0].IsOk())
 }
 
 func TestRetailClient_DisposeFailsPending(testing *testing.T) {
@@ -212,9 +183,7 @@ func TestRetailClient_DisposeFailsPending(testing *testing.T) {
 	_, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/"},
 	})
-	if error == nil {
-		testing.Fatal("expected error after dispose")
-	}
+	assert.Error(testing, error)
 }
 
 func TestRetailClient_PreservesHeaders(testing *testing.T) {
@@ -240,18 +209,10 @@ func TestRetailClient_PreservesHeaders(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/headers"},
 	})
-	if error != nil {
-		testing.Fatal(error)
-	}
-	if !results[0].IsOk() {
-		testing.Fatal("expected ok")
-	}
-	if receivedHeaders.Get("X-Custom") != "value1" {
-		testing.Fatalf("expected X-Custom header, got %v", receivedHeaders.Get("X-Custom"))
-	}
-	if receivedHeaders.Get("User-Agent") == "" {
-		testing.Fatal("expected User-Agent header")
-	}
+	require.NoError(testing, error)
+	require.True(testing, results[0].IsOk())
+	assert.Equal(testing, "value1", receivedHeaders.Get("X-Custom"))
+	assert.NotEmpty(testing, receivedHeaders.Get("User-Agent"))
 }
 
 func TestRetailClient_SessionMinting(testing *testing.T) {
@@ -291,15 +252,9 @@ func TestRetailClient_SessionMinting(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/data"},
 	})
-	if error != nil {
-		testing.Fatal(error)
-	}
-	if !results[0].IsOk() {
-		testing.Fatalf("expected ok, got error: %v", results[0].Error)
-	}
-	if atomic.LoadInt32(&mintCount) != 1 {
-		testing.Fatalf("expected 1 mint, got %d", atomic.LoadInt32(&mintCount))
-	}
+	require.NoError(testing, error)
+	require.True(testing, results[0].IsOk(), "expected ok, got error: %v", results[0].Error)
+	assert.Equal(testing, int32(1), atomic.LoadInt32(&mintCount))
 }
 
 func TestRetailClient_SessionRefresh(testing *testing.T) {
@@ -337,12 +292,8 @@ func TestRetailClient_SessionRefresh(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/data"},
 	})
-	if error != nil {
-		testing.Fatal(error)
-	}
-	if !results[0].IsOk() {
-		testing.Fatalf("expected ok, got error: %v", results[0].Error)
-	}
+	require.NoError(testing, error)
+	assert.True(testing, results[0].IsOk(), "expected ok, got error: %v", results[0].Error)
 }
 
 func TestRetailClient_BodyRequest(testing *testing.T) {
@@ -365,15 +316,9 @@ func TestRetailClient_BodyRequest(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "POST", Path: "/post", Body: []byte(`{"key":"value"}`)},
 	})
-	if error != nil {
-		testing.Fatal(error)
-	}
-	if !results[0].IsOk() {
-		testing.Fatalf("expected ok, got error: %v", results[0].Error)
-	}
-	if string(receivedBody) != `{"key":"value"}` {
-		testing.Fatalf("expected body, got '%s'", string(receivedBody))
-	}
+	require.NoError(testing, error)
+	require.True(testing, results[0].IsOk())
+	assert.Equal(testing, `{"key":"value"}`, string(receivedBody))
 }
 
 func TestRetailClient_Label(testing *testing.T) {
@@ -394,15 +339,9 @@ func TestRetailClient_Label(testing *testing.T) {
 	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/test", Label: "custom label"},
 	})
-	if error == nil {
-		testing.Fatal("expected error from all-failed batch")
-	}
-	if results[0].Error == nil {
-		testing.Fatal("expected error")
-	}
-	if results[0].Error.Error() != "custom label: status 404: unsuccessful http status" {
-		testing.Fatalf("unexpected error: %v", results[0].Error)
-	}
+	assert.Error(testing, error)
+	require.NotNil(testing, results[0].Error)
+	assert.Equal(testing, "custom label: status 404: unsuccessful http status", results[0].Error.Error())
 }
 
 func TestRetailClient_RetryAfter(testing *testing.T) {
@@ -427,15 +366,9 @@ func TestRetailClient_RetryAfter(testing *testing.T) {
 	})
 	elapsed := time.Since(startedAt)
 
-	if error == nil {
-		testing.Fatal("expected error after retries")
-	}
-	if results[0].IsOk() {
-		testing.Fatal("expected error after retries")
-	}
-	if elapsed < 1*time.Second {
-		testing.Fatalf("expected at least 1s delay from Retry-After, got %v", elapsed)
-	}
+	assert.Error(testing, error)
+	assert.False(testing, results[0].IsOk())
+	assert.GreaterOrEqual(testing, elapsed, 1*time.Second)
 }
 
 func TestRetailClient_EmptyRequests(testing *testing.T) {
@@ -446,21 +379,17 @@ func TestRetailClient_EmptyRequests(testing *testing.T) {
 	defer client.Dispose()
 
 	results, error := client.Execute(testing.Context(), nil)
-	if error != nil {
-		testing.Fatal(error)
-	}
-	if len(results) != 0 {
-		testing.Fatalf("expected 0 results, got %d", len(results))
-	}
+	require.NoError(testing, error)
+	assert.Empty(testing, results)
 }
 
 // testSession is a simple test implementation of RetailSession.
 type testSession struct {
-	mutex    sync.Mutex
-	token    string
-	headers  map[string][]string
-	minted   bool
-	expired  bool
+	mutex   sync.Mutex
+	token   string
+	headers map[string][]string
+	minted  bool
+	expired bool
 }
 
 func (session *testSession) Prime() error { return nil }
@@ -524,9 +453,7 @@ func TestRetailClient_NoBaseUrlError(testing *testing.T) {
 	_, error := client.Execute(testing.Context(), []common.RetailClientRequest{
 		{Method: "GET", Path: "/relative"},
 	})
-	if error == nil {
-		testing.Fatal("expected error for relative path with empty BaseUrl")
-	}
+	assert.Error(testing, error)
 }
 
 func TestRetailClient_ConcurrentRequests(testing *testing.T) {
@@ -553,9 +480,7 @@ func TestRetailClient_ConcurrentRequests(testing *testing.T) {
 	}
 
 	results, error := client.Execute(testing.Context(), requestList)
-	if error != nil {
-		testing.Fatal(error)
-	}
+	require.NoError(testing, error)
 
 	okCount := 0
 	for _, result := range results {
@@ -563,29 +488,19 @@ func TestRetailClient_ConcurrentRequests(testing *testing.T) {
 			okCount++
 		}
 	}
-	if okCount != 50 {
-		testing.Fatalf("expected 50 ok results, got %d", okCount)
-	}
-	if atomic.LoadInt32(&count) != 50 {
-		testing.Fatalf("expected 50 requests, got %d", atomic.LoadInt32(&count))
-	}
+	assert.Equal(testing, 50, okCount)
+	assert.Equal(testing, int32(50), atomic.LoadInt32(&count))
 }
 
 func TestProgressTicker(testing *testing.T) {
 	ticker := common.NewProgressTicker(10 * time.Millisecond)
 
-	if ticker.ShouldReport() {
-		testing.Fatal("expected first report to be false (nextAt = start + interval)")
-	}
+	assert.False(testing, ticker.ShouldReport(), "first report should be false")
 	time.Sleep(15 * time.Millisecond)
-	if !ticker.ShouldReport() {
-		testing.Fatal("expected report after interval")
-	}
+	assert.True(testing, ticker.ShouldReport(), "should report after interval")
 
 	rate := ticker.RatePerSecond(100)
-	if rate <= 0 {
-		testing.Fatalf("expected positive rate, got %f", rate)
-	}
+	assert.Positive(testing, rate)
 }
 
 func TestTerminalError(testing *testing.T) {
@@ -593,28 +508,16 @@ func TestTerminalError(testing *testing.T) {
 	jobItem := &common.Job{Request: request, RequestLabel: "test"}
 
 	error := common.TerminalError(jobItem, nil, fmt.Errorf("network error"), false)
-	if error == nil {
-		testing.Fatal("expected error")
-	}
-	if error.Error() != "test: network error" {
-		testing.Fatalf("unexpected error: %v", error)
-	}
+	require.NotNil(testing, error)
+	assert.Equal(testing, "test: network error", error.Error())
 
 	error = common.TerminalError(jobItem, &common.RetailClientResponse{StatusCode: 500}, nil, true)
-	if error == nil {
-		testing.Fatal("expected error")
-	}
-	if error.Error() != "test: gave up after 0 attempt(s), last status 500: unsuccessful http status" {
-		testing.Fatalf("unexpected error: %v", error)
-	}
+	require.NotNil(testing, error)
+	assert.Equal(testing, "test: gave up after 0 attempt(s), last status 500: unsuccessful http status", error.Error())
 
 	error = common.TerminalError(jobItem, &common.RetailClientResponse{StatusCode: 404}, nil, false)
-	if error == nil {
-		testing.Fatal("expected error")
-	}
-	if error.Error() != "test: status 404: unsuccessful http status" {
-		testing.Fatalf("unexpected error: %v", error)
-	}
+	require.NotNil(testing, error)
+	assert.Equal(testing, "test: status 404: unsuccessful http status", error.Error())
 }
 
 func TestWithSession(testing *testing.T) {
@@ -626,35 +529,24 @@ func TestWithSession(testing *testing.T) {
 	sessionHeaders := map[string][]string{"Authorization": {"Bearer token"}}
 
 	merged := common.WithSession(request, sessionHeaders)
-	if merged.Headers["Authorization"][0] != "Bearer token" {
-		testing.Fatal("expected session header")
-	}
-	if merged.Headers["X-Custom"][0] != "value" {
-		testing.Fatal("expected original header")
-	}
+	assert.Equal(testing, "Bearer token", merged.Headers["Authorization"][0])
+	assert.Equal(testing, "value", merged.Headers["X-Custom"][0])
 
 	noSession := common.WithSession(request, nil)
-	if noSession.Headers["X-Custom"][0] != "value" {
-		testing.Fatal("expected original header when no session")
-	}
+	assert.Equal(testing, "value", noSession.Headers["X-Custom"][0])
 }
 
 func TestRetryAfterParsing(testing *testing.T) {
 	response := &common.RetailClientResponse{Headers: map[string][]string{"Retry-After": {"5"}}}
 	duration := common.RetryAfter(response)
-	if duration == nil || *duration != 5*time.Second {
-		testing.Fatalf("expected 5s, got %v", duration)
-	}
+	require.NotNil(testing, duration)
+	assert.Equal(testing, 5*time.Second, *duration)
 
 	response = &common.RetailClientResponse{Headers: map[string][]string{"Retry-After": {"Wed, 09 Apr 2025 10:00:00 GMT"}}}
 	duration = common.RetryAfter(response)
-	if duration == nil {
-		testing.Fatal("expected retry-after from date")
-	}
+	assert.NotNil(testing, duration)
 
 	response = &common.RetailClientResponse{Headers: map[string][]string{}}
 	duration = common.RetryAfter(response)
-	if duration != nil {
-		testing.Fatalf("expected nil, got %v", duration)
-	}
+	assert.Nil(testing, duration)
 }
