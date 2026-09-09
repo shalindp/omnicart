@@ -44,10 +44,10 @@ JOIN product p USING (product_id)
 JOIN store s USING (store_id)
 LEFT JOIN product_image pi
        ON pi.product_id = p.product_id
-      AND pi.store_chain = s.store_name
+      AND pi.store_chain = s.retailer
       AND pi.position = 1
       AND pi.is_deleted = false
-WHERE s.store_name = sqlc.arg('store_name')::store_chain
+WHERE s.retailer = sqlc.arg('retailer')::store_chain
   AND p.barcode IS NOT NULL
   AND sp.is_deleted = false
   AND p.is_deleted = false

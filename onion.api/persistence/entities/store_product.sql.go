@@ -96,10 +96,10 @@ JOIN product p USING (product_id)
 JOIN store s USING (store_id)
 LEFT JOIN product_image pi
        ON pi.product_id = p.product_id
-      AND pi.store_chain = s.store_name
+      AND pi.store_chain = s.retailer
       AND pi.position = 1
       AND pi.is_deleted = false
-WHERE s.store_name = $1::store_chain
+WHERE s.retailer = $1::store_chain
   AND p.barcode IS NOT NULL
   AND sp.is_deleted = false
   AND p.is_deleted = false
@@ -116,8 +116,8 @@ type ListKnownBarcodesByChainRow struct {
 // Feeds the barcode cache. Keyed by the retailer's own product id rather than by store,
 // because a barcode is store-independent: what one store resolved is valid for all of that
 // chain's stores.
-func (q *Queries) ListKnownBarcodesByChain(ctx context.Context, storeName StoreChain) ([]ListKnownBarcodesByChainRow, error) {
-	rows, err := q.db.Query(ctx, listKnownBarcodesByChain, storeName)
+func (q *Queries) ListKnownBarcodesByChain(ctx context.Context, retailer StoreChain) ([]ListKnownBarcodesByChainRow, error) {
+	rows, err := q.db.Query(ctx, listKnownBarcodesByChain, retailer)
 	if err != nil {
 		return nil, err
 	}

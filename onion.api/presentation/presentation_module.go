@@ -1,7 +1,7 @@
 package presentation
 
 import (
-	"onion.api/infrastrucre"
+	"onion.api/aplication"
 	"onion.api/presentation/controllers"
 
 	"github.com/labstack/echo/v4"
@@ -15,12 +15,12 @@ type PresentationModule struct {
 	ServerInstance *echo.Echo
 }
 
-func Initialize(settings PresentationSettings, infrastructureModule *infrastrucre.InfrastructureModule) *PresentationModule {
+func Initialize(settings PresentationSettings, applicationModule *aplication.ApplicationModule) *PresentationModule {
 	serverInstance := echo.New()
 	serverInstance.HideBanner = true
 
 	controllers.Initialize(serverInstance)
-	controllers.InitializeRetailerController(serverInstance, infrastructureModule.PakNSaveClient, infrastructureModule.WoolworthsClient)
+	controllers.InitializeRetailerController(serverInstance, applicationModule.SyncRetailersCommand)
 
 	return &PresentationModule{
 		ServerInstance: serverInstance,

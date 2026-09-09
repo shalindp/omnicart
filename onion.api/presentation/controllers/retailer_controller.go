@@ -3,38 +3,21 @@ package controllers
 import (
 	"net/http"
 
-	"onion.api/infrastrucre/common/responses"
-	"onion.api/infrastrucre/paknsave"
-	"onion.api/infrastrucre/woolworths"
+	retailercommands "onion.api/aplication/commands/retailers"
 
 	"github.com/labstack/echo/v4"
 )
 
-var pakNSaveClientRef *paknsave.PakNSaveClient
-var woolworthsClientRef *woolworths.WoolworthsClient
-
-func InitializeRetailerController(serverInstance *echo.Echo, pakNSaveClient *paknsave.PakNSaveClient, woolworthsClient *woolworths.WoolworthsClient) {
-	pakNSaveClientRef = pakNSaveClient
-	woolworthsClientRef = woolworthsClient
-	serverInstance.GET("/retailers/stores", getStores)
+func InitializeRetailerController(serverInstance *echo.Echo, syncCommand *retailercommands.SyncRetailersCommand) {
+	serverInstance.POST("/retailers/sync", syncRetailers(syncCommand))
 }
 
-func getStores(context echo.Context) error {
-	requestContext := context.Request().Context()
-
-	pakNSaveStores, pakNSaveError := pakNSaveClientRef.GetStores(requestContext)
-	if pakNSaveError != nil {
-		pakNSaveStores = nil
+func syncRetailers(command *retailercommands.SyncRetailersCommand) echo.HandlerFunc {
+	return func(context echo.Context) error {
+		executeError := command.Execute(context.Request().Context())
+		if executeError != nil {
+			return context.JSON(http.StatusInternalServerError, map[string]string{"error": executeError.Error()})
+		}
+		return context.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	}
-
-	woolworthsStores, woolworthsError := woolworthsClientRef.GetStores(requestContext)
-	if woolworthsError != nil {
-		woolworthsStores = nil
-	}
-
-	allStores := make([]responses.StoreResponse, 0, len(pakNSaveStores)+len(woolworthsStores))
-	allStores = append(allStores, pakNSaveStores...)
-	allStores = append(allStores, woolworthsStores...)
-
-	return context.JSON(http.StatusOK, allStores)
 }

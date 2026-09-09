@@ -10,39 +10,41 @@ import (
 )
 
 const findStoreByChainAndRegion = `-- name: FindStoreByChainAndRegion :one
-SELECT store_id, store_name, region_id, date_created_utc, last_updated_utc, is_deleted FROM store
-WHERE store_name = $1::store_chain
+SELECT store_id, retailer, region_id, date_created_utc, last_updated_utc, is_deleted, external_store_id, name FROM store
+WHERE retailer = $1::store_chain
   AND region_id = $2::text
   AND is_deleted = false
 `
 
 type FindStoreByChainAndRegionParams struct {
-	StoreName StoreChain
-	RegionID  string
+	Retailer StoreChain
+	RegionID string
 }
 
 func (q *Queries) FindStoreByChainAndRegion(ctx context.Context, arg FindStoreByChainAndRegionParams) (Store, error) {
-	row := q.db.QueryRow(ctx, findStoreByChainAndRegion, arg.StoreName, arg.RegionID)
+	row := q.db.QueryRow(ctx, findStoreByChainAndRegion, arg.Retailer, arg.RegionID)
 	var i Store
 	err := row.Scan(
 		&i.StoreID,
-		&i.StoreName,
+		&i.Retailer,
 		&i.RegionID,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
 		&i.IsDeleted,
+		&i.ExternalStoreID,
+		&i.Name,
 	)
 	return i, err
 }
 
 const listStoresByChain = `-- name: ListStoresByChain :many
-SELECT store_id, store_name, region_id, date_created_utc, last_updated_utc, is_deleted FROM store
-WHERE store_name = $1::store_chain AND is_deleted = false
+SELECT store_id, retailer, region_id, date_created_utc, last_updated_utc, is_deleted, external_store_id, name FROM store
+WHERE retailer = $1::store_chain AND is_deleted = false
 ORDER BY region_id
 `
 
-func (q *Queries) ListStoresByChain(ctx context.Context, storeName StoreChain) ([]Store, error) {
-	rows, err := q.db.Query(ctx, listStoresByChain, storeName)
+func (q *Queries) ListStoresByChain(ctx context.Context, retailer StoreChain) ([]Store, error) {
+	rows, err := q.db.Query(ctx, listStoresByChain, retailer)
 	if err != nil {
 		return nil, err
 	}
@@ -52,11 +54,13 @@ func (q *Queries) ListStoresByChain(ctx context.Context, storeName StoreChain) (
 		var i Store
 		if err := rows.Scan(
 			&i.StoreID,
-			&i.StoreName,
+			&i.Retailer,
 			&i.RegionID,
 			&i.DateCreatedUtc,
 			&i.LastUpdatedUtc,
 			&i.IsDeleted,
+			&i.ExternalStoreID,
+			&i.Name,
 		); err != nil {
 			return nil, err
 		}
@@ -69,29 +73,40 @@ func (q *Queries) ListStoresByChain(ctx context.Context, storeName StoreChain) (
 }
 
 const upsertStore = `-- name: UpsertStore :one
-INSERT INTO store (store_name, region_id)
-VALUES ($1::store_chain, $2::text)
-ON CONFLICT (store_name, region_id) DO UPDATE
-SET last_updated_utc = now(),
+INSERT INTO store (retailer, region_id, external_store_id, name)
+VALUES ($1::store_chain, $2::text, $3::text, $4::text)
+ON CONFLICT (external_store_id) WHERE external_store_id IS NOT NULL DO UPDATE
+SET name            = EXCLUDED.name,
+    retailer        = EXCLUDED.retailer,
+    last_updated_utc = now(),
     is_deleted       = false
-RETURNING store_id, store_name, region_id, date_created_utc, last_updated_utc, is_deleted
+RETURNING store_id, retailer, region_id, date_created_utc, last_updated_utc, is_deleted, external_store_id, name
 `
 
 type UpsertStoreParams struct {
-	StoreName StoreChain
-	RegionID  string
+	Retailer        StoreChain
+	RegionID        string
+	ExternalStoreID string
+	Name            string
 }
 
 func (q *Queries) UpsertStore(ctx context.Context, arg UpsertStoreParams) (Store, error) {
-	row := q.db.QueryRow(ctx, upsertStore, arg.StoreName, arg.RegionID)
+	row := q.db.QueryRow(ctx, upsertStore,
+		arg.Retailer,
+		arg.RegionID,
+		arg.ExternalStoreID,
+		arg.Name,
+	)
 	var i Store
 	err := row.Scan(
 		&i.StoreID,
-		&i.StoreName,
+		&i.Retailer,
 		&i.RegionID,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
 		&i.IsDeleted,
+		&i.ExternalStoreID,
+		&i.Name,
 	)
 	return i, err
 }

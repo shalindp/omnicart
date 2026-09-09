@@ -211,12 +211,14 @@ type RetailerSession struct {
 }
 
 type Store struct {
-	StoreID        pgtype.UUID
-	StoreName      StoreChain
-	RegionID       string
-	DateCreatedUtc pgtype.Timestamptz
-	LastUpdatedUtc pgtype.Timestamptz
-	IsDeleted      bool
+	StoreID         pgtype.UUID
+	Retailer        StoreChain
+	RegionID        string
+	DateCreatedUtc  pgtype.Timestamptz
+	LastUpdatedUtc  pgtype.Timestamptz
+	IsDeleted       bool
+	ExternalStoreID pgtype.Text
+	Name            string
 }
 
 type StoreProduct struct {

@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"onion.api/aplication"
 	"onion.api/infrastrucre"
 	"onion.api/persistence"
 	"onion.api/presentation"
@@ -28,7 +29,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	presentationModule := presentation.Initialize(environmentVariables.PresentationSettings, infrastructureModule)
+	applicationModule := aplication.Initialize(persistenceModule, infrastructureModule)
+
+	presentationModule := presentation.Initialize(environmentVariables.PresentationSettings, applicationModule)
 
 	go func() {
 		error := presentationModule.Start(environmentVariables.PresentationSettings)

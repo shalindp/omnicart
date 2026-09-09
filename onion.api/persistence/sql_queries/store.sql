@@ -1,18 +1,20 @@
 -- name: FindStoreByChainAndRegion :one
 SELECT * FROM store
-WHERE store_name = sqlc.arg('store_name')::store_chain
+WHERE retailer = sqlc.arg('retailer')::store_chain
   AND region_id = sqlc.arg('region_id')::text
   AND is_deleted = false;
 
 -- name: UpsertStore :one
-INSERT INTO store (store_name, region_id)
-VALUES (sqlc.arg('store_name')::store_chain, sqlc.arg('region_id')::text)
-ON CONFLICT (store_name, region_id) DO UPDATE
-SET last_updated_utc = now(),
+INSERT INTO store (retailer, region_id, external_store_id, name)
+VALUES (sqlc.arg('retailer')::store_chain, sqlc.arg('region_id')::text, sqlc.arg('external_store_id')::text, sqlc.arg('name')::text)
+ON CONFLICT (external_store_id) WHERE external_store_id IS NOT NULL DO UPDATE
+SET name            = EXCLUDED.name,
+    retailer        = EXCLUDED.retailer,
+    last_updated_utc = now(),
     is_deleted       = false
 RETURNING *;
 
 -- name: ListStoresByChain :many
 SELECT * FROM store
-WHERE store_name = sqlc.arg('store_name')::store_chain AND is_deleted = false
+WHERE retailer = sqlc.arg('retailer')::store_chain AND is_deleted = false
 ORDER BY region_id;

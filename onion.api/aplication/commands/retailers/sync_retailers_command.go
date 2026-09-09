@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"onion.api/aplication"
 	retaileractions "onion.api/aplication/actions/retailers"
+	"onion.api/aplication/command_base"
 	"onion.api/infrastrucre/mappers"
 	"onion.api/persistence/entities"
 
@@ -13,11 +13,11 @@ import (
 )
 
 type SyncRetailersCommand struct {
-	aplication.BaseCommand
+	command_base.BaseCommand
 	Action *retaileractions.GetRetailersStoresAction
 }
 
-func NewSyncRetailersCommand(baseCommand aplication.BaseCommand, action *retaileractions.GetRetailersStoresAction) *SyncRetailersCommand {
+func NewSyncRetailersCommand(baseCommand command_base.BaseCommand, action *retaileractions.GetRetailersStoresAction) *SyncRetailersCommand {
 	return &SyncRetailersCommand{
 		BaseCommand: baseCommand,
 		Action:      action,
@@ -33,8 +33,10 @@ func (command *SyncRetailersCommand) Execute(requestContext context.Context) err
 	writeError := command.PersistenceModule.InTransaction(requestContext, func(queries *entities.Queries, transaction pgx.Tx) error {
 		for _, store := range stores {
 			_, upsertError := queries.UpsertStore(requestContext, entities.UpsertStoreParams{
-				StoreName: mappers.MapStoreChain(store.Retailer),
-				RegionID:  "default",
+				Retailer:        mappers.MapStoreChain(store.Retailer),
+				RegionID:        "default",
+				ExternalStoreID: store.Id,
+				Name:            store.Name,
 			})
 			if upsertError != nil {
 				return fmt.Errorf("sync retailers: upsert store for %s: %w", store.Retailer, upsertError)

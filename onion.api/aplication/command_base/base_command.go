@@ -1,4 +1,4 @@
-package aplication
+package command_base
 
 import (
 	"context"
