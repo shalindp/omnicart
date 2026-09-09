@@ -56,7 +56,7 @@ ON CONFLICT (store_chain) WHERE is_deleted = false DO UPDATE
 SET token            = EXCLUDED.token,
     expires_at_utc   = EXCLUDED.expires_at_utc,
     last_updated_utc = now()
-RETURNING retailer_session_id, store_chain, token, expires_at_utc, date_created_utc, last_updated_utc, is_deleted
+RETURNING retailer_session_id, store_chain, token, expires_at_utc, is_deleted, date_created_utc, last_updated_utc
 `
 
 type UpsertRetailerSessionParams struct {
@@ -74,9 +74,9 @@ func (q *Queries) UpsertRetailerSession(ctx context.Context, arg UpsertRetailerS
 		&i.StoreChain,
 		&i.Token,
 		&i.ExpiresAtUtc,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 	)
 	return i, err
 }

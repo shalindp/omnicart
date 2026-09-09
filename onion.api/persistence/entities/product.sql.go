@@ -23,7 +23,7 @@ func (q *Queries) CountProducts(ctx context.Context) (int64, error) {
 }
 
 const findProductByBarcode = `-- name: FindProductByBarcode :one
-SELECT product_id, barcode, barcode_type, name, brand, date_created_utc, last_updated_utc, is_deleted, pack_size FROM product
+SELECT product_id, barcode, barcode_type, name, brand, pack_size, is_deleted, date_created_utc, last_updated_utc FROM product
 WHERE barcode_type = $1::barcode_kind
   AND barcode = $2::text
   AND is_deleted = false
@@ -44,16 +44,16 @@ func (q *Queries) FindProductByBarcode(ctx context.Context, arg FindProductByBar
 		&i.BarcodeType,
 		&i.Name,
 		&i.Brand,
+		&i.PackSize,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
-		&i.PackSize,
 	)
 	return i, err
 }
 
 const findProductByIdentity = `-- name: FindProductByIdentity :one
-SELECT product_id, barcode, barcode_type, name, brand, date_created_utc, last_updated_utc, is_deleted, pack_size FROM product
+SELECT product_id, barcode, barcode_type, name, brand, pack_size, is_deleted, date_created_utc, last_updated_utc FROM product
 WHERE barcode IS NULL
   AND lower(coalesce(brand, '')) = lower(coalesce($1::text, ''))
   AND lower(name) = lower($2::text)
@@ -78,10 +78,10 @@ func (q *Queries) FindProductByIdentity(ctx context.Context, arg FindProductById
 		&i.BarcodeType,
 		&i.Name,
 		&i.Brand,
+		&i.PackSize,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
-		&i.PackSize,
 	)
 	return i, err
 }
@@ -95,7 +95,7 @@ VALUES (
     $4::text,
     $5::text
 )
-RETURNING product_id, barcode, barcode_type, name, brand, date_created_utc, last_updated_utc, is_deleted, pack_size
+RETURNING product_id, barcode, barcode_type, name, brand, pack_size, is_deleted, date_created_utc, last_updated_utc
 `
 
 type InsertProductParams struct {
@@ -121,10 +121,10 @@ func (q *Queries) InsertProduct(ctx context.Context, arg InsertProductParams) (P
 		&i.BarcodeType,
 		&i.Name,
 		&i.Brand,
+		&i.PackSize,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
-		&i.PackSize,
 	)
 	return i, err
 }
@@ -136,7 +136,7 @@ SET name             = $2,
     pack_size        = $4::text,
     last_updated_utc = now()
 WHERE product_id = $1
-RETURNING product_id, barcode, barcode_type, name, brand, date_created_utc, last_updated_utc, is_deleted, pack_size
+RETURNING product_id, barcode, barcode_type, name, brand, pack_size, is_deleted, date_created_utc, last_updated_utc
 `
 
 type UpdateProductDetailsParams struct {
@@ -162,10 +162,10 @@ func (q *Queries) UpdateProductDetails(ctx context.Context, arg UpdateProductDet
 		&i.BarcodeType,
 		&i.Name,
 		&i.Brand,
+		&i.PackSize,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
-		&i.PackSize,
 	)
 	return i, err
 }

@@ -368,7 +368,7 @@ SET source_url         = EXCLUDED.source_url,
     downloaded_at_utc  = EXCLUDED.downloaded_at_utc,
     placeholder_at_utc = EXCLUDED.placeholder_at_utc,
     last_updated_utc   = now()
-RETURNING product_image_id, product_id, store_chain, position, source_url, file_name, content_sha256, bytes, width, height, downloaded_at_utc, placeholder_at_utc, date_created_utc, last_updated_utc, is_deleted, source_etag
+RETURNING product_image_id, product_id, store_chain, position, source_url, source_etag, file_name, content_sha256, bytes, width, height, downloaded_at_utc, placeholder_at_utc, is_deleted, date_created_utc, last_updated_utc
 `
 
 type UpsertHarvestedImageParams struct {
@@ -407,6 +407,7 @@ func (q *Queries) UpsertHarvestedImage(ctx context.Context, arg UpsertHarvestedI
 		&i.StoreChain,
 		&i.Position,
 		&i.SourceUrl,
+		&i.SourceEtag,
 		&i.FileName,
 		&i.ContentSha256,
 		&i.Bytes,
@@ -414,10 +415,9 @@ func (q *Queries) UpsertHarvestedImage(ctx context.Context, arg UpsertHarvestedI
 		&i.Height,
 		&i.DownloadedAtUtc,
 		&i.PlaceholderAtUtc,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
-		&i.SourceEtag,
 	)
 	return i, err
 }
@@ -428,7 +428,7 @@ VALUES ($1, $2::store_chain, 1, $3::text)
 ON CONFLICT (product_id, store_chain, position) WHERE is_deleted = false DO UPDATE
 SET source_url       = EXCLUDED.source_url,
     last_updated_utc = now()
-RETURNING product_image_id, product_id, store_chain, position, source_url, file_name, content_sha256, bytes, width, height, downloaded_at_utc, placeholder_at_utc, date_created_utc, last_updated_utc, is_deleted, source_etag
+RETURNING product_image_id, product_id, store_chain, position, source_url, source_etag, file_name, content_sha256, bytes, width, height, downloaded_at_utc, placeholder_at_utc, is_deleted, date_created_utc, last_updated_utc
 `
 
 type UpsertProductImageSourceParams struct {
@@ -447,6 +447,7 @@ func (q *Queries) UpsertProductImageSource(ctx context.Context, arg UpsertProduc
 		&i.StoreChain,
 		&i.Position,
 		&i.SourceUrl,
+		&i.SourceEtag,
 		&i.FileName,
 		&i.ContentSha256,
 		&i.Bytes,
@@ -454,10 +455,9 @@ func (q *Queries) UpsertProductImageSource(ctx context.Context, arg UpsertProduc
 		&i.Height,
 		&i.DownloadedAtUtc,
 		&i.PlaceholderAtUtc,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
-		&i.SourceEtag,
 	)
 	return i, err
 }

@@ -10,7 +10,7 @@ import (
 )
 
 const findStoreByChainAndRegion = `-- name: FindStoreByChainAndRegion :one
-SELECT store_id, retailer, region_id, date_created_utc, last_updated_utc, is_deleted, external_store_id, name FROM store
+SELECT store_id, retailer, region_id, external_store_id, name, latitude, longitude, is_deleted, date_created_utc, last_updated_utc FROM store
 WHERE retailer = $1::store_chain
   AND region_id = $2::text
   AND is_deleted = false
@@ -28,17 +28,19 @@ func (q *Queries) FindStoreByChainAndRegion(ctx context.Context, arg FindStoreBy
 		&i.StoreID,
 		&i.Retailer,
 		&i.RegionID,
-		&i.DateCreatedUtc,
-		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 		&i.ExternalStoreID,
 		&i.Name,
+		&i.Latitude,
+		&i.Longitude,
+		&i.IsDeleted,
+		&i.DateCreatedUtc,
+		&i.LastUpdatedUtc,
 	)
 	return i, err
 }
 
 const listStoresByChain = `-- name: ListStoresByChain :many
-SELECT store_id, retailer, region_id, date_created_utc, last_updated_utc, is_deleted, external_store_id, name FROM store
+SELECT store_id, retailer, region_id, external_store_id, name, latitude, longitude, is_deleted, date_created_utc, last_updated_utc FROM store
 WHERE retailer = $1::store_chain AND is_deleted = false
 ORDER BY region_id
 `
@@ -56,11 +58,13 @@ func (q *Queries) ListStoresByChain(ctx context.Context, retailer StoreChain) ([
 			&i.StoreID,
 			&i.Retailer,
 			&i.RegionID,
-			&i.DateCreatedUtc,
-			&i.LastUpdatedUtc,
-			&i.IsDeleted,
 			&i.ExternalStoreID,
 			&i.Name,
+			&i.Latitude,
+			&i.Longitude,
+			&i.IsDeleted,
+			&i.DateCreatedUtc,
+			&i.LastUpdatedUtc,
 		); err != nil {
 			return nil, err
 		}
@@ -73,14 +77,16 @@ func (q *Queries) ListStoresByChain(ctx context.Context, retailer StoreChain) ([
 }
 
 const upsertStore = `-- name: UpsertStore :one
-INSERT INTO store (retailer, region_id, external_store_id, name)
-VALUES ($1::store_chain, $2::text, $3::text, $4::text)
+INSERT INTO store (retailer, region_id, external_store_id, name, latitude, longitude)
+VALUES ($1::store_chain, $2::text, $3::text, $4::text, $5::double precision, $6::double precision)
 ON CONFLICT (external_store_id) WHERE external_store_id IS NOT NULL DO UPDATE
 SET name            = EXCLUDED.name,
     retailer        = EXCLUDED.retailer,
+    latitude        = EXCLUDED.latitude,
+    longitude       = EXCLUDED.longitude,
     last_updated_utc = now(),
     is_deleted       = false
-RETURNING store_id, retailer, region_id, date_created_utc, last_updated_utc, is_deleted, external_store_id, name
+RETURNING store_id, retailer, region_id, external_store_id, name, latitude, longitude, is_deleted, date_created_utc, last_updated_utc
 `
 
 type UpsertStoreParams struct {
@@ -88,6 +94,8 @@ type UpsertStoreParams struct {
 	RegionID        string
 	ExternalStoreID string
 	Name            string
+	Latitude        float64
+	Longitude       float64
 }
 
 func (q *Queries) UpsertStore(ctx context.Context, arg UpsertStoreParams) (Store, error) {
@@ -96,17 +104,21 @@ func (q *Queries) UpsertStore(ctx context.Context, arg UpsertStoreParams) (Store
 		arg.RegionID,
 		arg.ExternalStoreID,
 		arg.Name,
+		arg.Latitude,
+		arg.Longitude,
 	)
 	var i Store
 	err := row.Scan(
 		&i.StoreID,
 		&i.Retailer,
 		&i.RegionID,
-		&i.DateCreatedUtc,
-		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 		&i.ExternalStoreID,
 		&i.Name,
+		&i.Latitude,
+		&i.Longitude,
+		&i.IsDeleted,
+		&i.DateCreatedUtc,
+		&i.LastUpdatedUtc,
 	)
 	return i, err
 }

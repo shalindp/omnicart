@@ -37,6 +37,8 @@ func (command *SyncRetailersCommand) Execute(requestContext context.Context) err
 				RegionID:        "default",
 				ExternalStoreID: store.Id,
 				Name:            store.Name,
+				Latitude:        store.Latitude,
+				Longitude:       store.Longitude,
 			})
 			if upsertError != nil {
 				return fmt.Errorf("sync retailers: upsert store for %s: %w", store.Retailer, upsertError)

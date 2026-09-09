@@ -145,9 +145,9 @@ type Category struct {
 	ParentCategoryID pgtype.UUID
 	Name             string
 	DisplayName      pgtype.Text
+	IsDeleted        bool
 	DateCreatedUtc   pgtype.Timestamptz
 	LastUpdatedUtc   pgtype.Timestamptz
-	IsDeleted        bool
 }
 
 type CategoryNormaliser struct {
@@ -155,9 +155,9 @@ type CategoryNormaliser struct {
 	PaknsaveCategory     pgtype.Text
 	WoolworthsCategory   pgtype.Text
 	CanonicalName        string
+	IsDeleted            bool
 	DateCreatedUtc       pgtype.Timestamptz
 	LastUpdatedUtc       pgtype.Timestamptz
-	IsDeleted            bool
 }
 
 type Product struct {
@@ -166,19 +166,19 @@ type Product struct {
 	BarcodeType    NullBarcodeKind
 	Name           string
 	Brand          pgtype.Text
+	PackSize       pgtype.Text
+	IsDeleted      bool
 	DateCreatedUtc pgtype.Timestamptz
 	LastUpdatedUtc pgtype.Timestamptz
-	IsDeleted      bool
-	PackSize       pgtype.Text
 }
 
 type ProductCategory struct {
 	ProductCategoryID pgtype.UUID
 	ProductID         pgtype.UUID
 	CategoryID        pgtype.UUID
+	IsDeleted         bool
 	DateCreatedUtc    pgtype.Timestamptz
 	LastUpdatedUtc    pgtype.Timestamptz
-	IsDeleted         bool
 }
 
 type ProductImage struct {
@@ -187,6 +187,7 @@ type ProductImage struct {
 	StoreChain       StoreChain
 	Position         int32
 	SourceUrl        string
+	SourceEtag       pgtype.Text
 	FileName         pgtype.Text
 	ContentSha256    pgtype.Text
 	Bytes            pgtype.Int4
@@ -194,10 +195,9 @@ type ProductImage struct {
 	Height           pgtype.Int4
 	DownloadedAtUtc  pgtype.Timestamptz
 	PlaceholderAtUtc pgtype.Timestamptz
+	IsDeleted        bool
 	DateCreatedUtc   pgtype.Timestamptz
 	LastUpdatedUtc   pgtype.Timestamptz
-	IsDeleted        bool
-	SourceEtag       pgtype.Text
 }
 
 type RetailerSession struct {
@@ -205,20 +205,22 @@ type RetailerSession struct {
 	StoreChain        StoreChain
 	Token             string
 	ExpiresAtUtc      pgtype.Timestamptz
+	IsDeleted         bool
 	DateCreatedUtc    pgtype.Timestamptz
 	LastUpdatedUtc    pgtype.Timestamptz
-	IsDeleted         bool
 }
 
 type Store struct {
 	StoreID         pgtype.UUID
 	Retailer        StoreChain
 	RegionID        string
-	DateCreatedUtc  pgtype.Timestamptz
-	LastUpdatedUtc  pgtype.Timestamptz
-	IsDeleted       bool
 	ExternalStoreID pgtype.Text
 	Name            string
+	Latitude        pgtype.Float8
+	Longitude       pgtype.Float8
+	IsDeleted       bool
+	DateCreatedUtc  pgtype.Timestamptz
+	LastUpdatedUtc  pgtype.Timestamptz
 }
 
 type StoreProduct struct {
@@ -228,9 +230,9 @@ type StoreProduct struct {
 	ExternalProductID string
 	UnitOfMeasure     string
 	IsInStock         pgtype.Bool
+	IsDeleted         bool
 	DateCreatedUtc    pgtype.Timestamptz
 	LastUpdatedUtc    pgtype.Timestamptz
-	IsDeleted         bool
 }
 
 type StoreProductPrice struct {
@@ -238,12 +240,12 @@ type StoreProductPrice struct {
 	StoreProductID      pgtype.UUID
 	StoreID             pgtype.UUID
 	PriceCents          int32
-	ObservedAtUtc       pgtype.Timestamptz
-	DateCreatedUtc      pgtype.Timestamptz
-	LastUpdatedUtc      pgtype.Timestamptz
-	IsDeleted           bool
 	SalePriceCents      pgtype.Int4
 	IsSale              bool
+	ObservedAtUtc       pgtype.Timestamptz
+	IsDeleted           bool
+	DateCreatedUtc      pgtype.Timestamptz
+	LastUpdatedUtc      pgtype.Timestamptz
 }
 
 type SyncRun struct {
@@ -257,7 +259,7 @@ type SyncRun struct {
 	StoreProducts   int32
 	Delisted        int64
 	ErrorMessage    pgtype.Text
+	IsDeleted       bool
 	DateCreatedUtc  pgtype.Timestamptz
 	LastUpdatedUtc  pgtype.Timestamptz
-	IsDeleted       bool
 }

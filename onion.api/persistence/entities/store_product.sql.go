@@ -59,7 +59,7 @@ func (q *Queries) CountStoreProducts(ctx context.Context, storeID pgtype.UUID) (
 }
 
 const findStoreProductByExternalID = `-- name: FindStoreProductByExternalID :one
-SELECT store_product_id, product_id, store_id, external_product_id, unit_of_measure, is_in_stock, date_created_utc, last_updated_utc, is_deleted FROM store_product
+SELECT store_product_id, product_id, store_id, external_product_id, unit_of_measure, is_in_stock, is_deleted, date_created_utc, last_updated_utc FROM store_product
 WHERE store_id = $1 AND external_product_id = $2 AND is_deleted = false
 `
 
@@ -78,9 +78,9 @@ func (q *Queries) FindStoreProductByExternalID(ctx context.Context, arg FindStor
 		&i.ExternalProductID,
 		&i.UnitOfMeasure,
 		&i.IsInStock,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 	)
 	return i, err
 }
@@ -227,7 +227,7 @@ SET product_id       = EXCLUDED.product_id,
     is_in_stock      = EXCLUDED.is_in_stock,
     is_deleted       = false,
     last_updated_utc = now()
-RETURNING store_product_id, product_id, store_id, external_product_id, unit_of_measure, is_in_stock, date_created_utc, last_updated_utc, is_deleted
+RETURNING store_product_id, product_id, store_id, external_product_id, unit_of_measure, is_in_stock, is_deleted, date_created_utc, last_updated_utc
 `
 
 type UpsertStoreProductParams struct {
@@ -256,9 +256,9 @@ func (q *Queries) UpsertStoreProduct(ctx context.Context, arg UpsertStoreProduct
 		&i.ExternalProductID,
 		&i.UnitOfMeasure,
 		&i.IsInStock,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 	)
 	return i, err
 }

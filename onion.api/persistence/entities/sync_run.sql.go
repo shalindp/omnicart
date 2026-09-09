@@ -21,7 +21,7 @@ SET status           = 'SUCCEEDED',
     delisted         = $5,
     last_updated_utc = now()
 WHERE sync_run_id = $1
-RETURNING sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, date_created_utc, last_updated_utc, is_deleted
+RETURNING sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, is_deleted, date_created_utc, last_updated_utc
 `
 
 type CompleteSyncRunParams struct {
@@ -52,9 +52,9 @@ func (q *Queries) CompleteSyncRun(ctx context.Context, arg CompleteSyncRunParams
 		&i.StoreProducts,
 		&i.Delisted,
 		&i.ErrorMessage,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 	)
 	return i, err
 }
@@ -66,7 +66,7 @@ SET status           = 'FAILED',
     error_message    = $2,
     last_updated_utc = now()
 WHERE sync_run_id = $1
-RETURNING sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, date_created_utc, last_updated_utc, is_deleted
+RETURNING sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, is_deleted, date_created_utc, last_updated_utc
 `
 
 type FailSyncRunParams struct {
@@ -88,15 +88,15 @@ func (q *Queries) FailSyncRun(ctx context.Context, arg FailSyncRunParams) (SyncR
 		&i.StoreProducts,
 		&i.Delisted,
 		&i.ErrorMessage,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 	)
 	return i, err
 }
 
 const findRunningSyncRun = `-- name: FindRunningSyncRun :one
-SELECT sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, date_created_utc, last_updated_utc, is_deleted FROM sync_run WHERE status = 'RUNNING'
+SELECT sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, is_deleted, date_created_utc, last_updated_utc FROM sync_run WHERE status = 'RUNNING'
 `
 
 func (q *Queries) FindRunningSyncRun(ctx context.Context) (SyncRun, error) {
@@ -113,9 +113,9 @@ func (q *Queries) FindRunningSyncRun(ctx context.Context) (SyncRun, error) {
 		&i.StoreProducts,
 		&i.Delisted,
 		&i.ErrorMessage,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 	)
 	return i, err
 }
@@ -132,7 +132,7 @@ func (q *Queries) HeartbeatSyncRun(ctx context.Context, syncRunID pgtype.UUID) e
 }
 
 const latestSyncRun = `-- name: LatestSyncRun :one
-SELECT sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, date_created_utc, last_updated_utc, is_deleted FROM sync_run ORDER BY started_at_utc DESC LIMIT 1
+SELECT sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, is_deleted, date_created_utc, last_updated_utc FROM sync_run ORDER BY started_at_utc DESC LIMIT 1
 `
 
 func (q *Queries) LatestSyncRun(ctx context.Context) (SyncRun, error) {
@@ -149,9 +149,9 @@ func (q *Queries) LatestSyncRun(ctx context.Context) (SyncRun, error) {
 		&i.StoreProducts,
 		&i.Delisted,
 		&i.ErrorMessage,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 	)
 	return i, err
 }
@@ -177,7 +177,7 @@ func (q *Queries) ReclaimStaleSyncRuns(ctx context.Context, heartbeatAtUtc pgtyp
 
 const startSyncRun = `-- name: StartSyncRun :one
 INSERT INTO sync_run (status) VALUES ('RUNNING')
-RETURNING sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, date_created_utc, last_updated_utc, is_deleted
+RETURNING sync_run_id, status, started_at_utc, finished_at_utc, heartbeat_at_utc, products_created, products_matched, store_products, delisted, error_message, is_deleted, date_created_utc, last_updated_utc
 `
 
 // Fails with a unique violation if a run is already RUNNING, which is how the caller
@@ -196,9 +196,9 @@ func (q *Queries) StartSyncRun(ctx context.Context) (SyncRun, error) {
 		&i.StoreProducts,
 		&i.Delisted,
 		&i.ErrorMessage,
+		&i.IsDeleted,
 		&i.DateCreatedUtc,
 		&i.LastUpdatedUtc,
-		&i.IsDeleted,
 	)
 	return i, err
 }
