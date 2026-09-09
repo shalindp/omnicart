@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"onion.api/infrastrucre/common"
 	"onion.api/infrastrucre/woolworths"
 
 	"github.com/stretchr/testify/assert"
@@ -15,11 +16,18 @@ import (
 func TestWoolworthsClient_GetStores(testing *testing.T) {
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 
-	client := woolworths.NewWoolworthsClient(
-		"Glenfield",
-		6, 3, 400, 600, 30000,
-		httpClient, &testLogger{t: testing},
-	)
+	retailer := common.NewBaseRetailer(common.RetailClientConfig{
+		BaseUrl:             "https://www.woolworths.co.nz",
+		DegreeOfParallelism: 6,
+		NumOfRetries:        3,
+		DelayInMs:           400,
+		DelayMaxInMs:        600,
+		Timeout:             30 * time.Second,
+		Name:                "woolworths",
+		Logger:              &testLogger{t: testing},
+	}, httpClient)
+
+	client := woolworths.NewWoolworthsClient(retailer, "Glenfield")
 
 	stores, error := client.GetStores(context.Background())
 	require.NoError(testing, error)

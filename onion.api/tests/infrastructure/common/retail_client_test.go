@@ -1,12 +1,10 @@
 package requests_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -215,87 +213,6 @@ func TestRetailClient_PreservesHeaders(testing *testing.T) {
 	assert.NotEmpty(testing, receivedHeaders.Get("User-Agent"))
 }
 
-func TestRetailClient_SessionMinting(testing *testing.T) {
-	var mintCount int32
-	server := httptest.NewServer(http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/mint" {
-			atomic.AddInt32(&mintCount, 1)
-			responseWriter.Header().Set("Content-Type", "application/json")
-			responseWriter.Write([]byte(`{"token":"abc123"}`))
-			return
-		}
-		authorization := request.Header.Get("Authorization")
-		if authorization != "Bearer abc123" {
-			responseWriter.WriteHeader(401)
-			return
-		}
-		responseWriter.WriteHeader(200)
-		responseWriter.Write([]byte("ok"))
-	}))
-	defer server.Close()
-
-	session := &testSession{
-		token:   "",
-		headers: nil,
-	}
-
-	client := common.NewBaseRetailer(common.RetailClientConfig{
-		BaseUrl:             server.URL,
-		DegreeOfParallelism: 1,
-		NumOfRetries:        0,
-		DelayInMs:           10,
-		Timeout:             5 * time.Second,
-		Session:             session,
-	}, nil)
-	defer client.Dispose()
-
-	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
-		{Method: "GET", Path: "/data"},
-	})
-	require.NoError(testing, error)
-	require.True(testing, results[0].IsOk(), "expected ok, got error: %v", results[0].Error)
-	assert.Equal(testing, int32(1), atomic.LoadInt32(&mintCount))
-}
-
-func TestRetailClient_SessionRefresh(testing *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/mint" && request.Method == "POST" {
-			responseWriter.Header().Set("Content-Type", "application/json")
-			responseWriter.Write([]byte(`{"token":"newtoken"}`))
-			return
-		}
-		authorization := request.Header.Get("Authorization")
-		if authorization != "Bearer newtoken" {
-			responseWriter.WriteHeader(401)
-			return
-		}
-		responseWriter.WriteHeader(200)
-		responseWriter.Write([]byte("ok"))
-	}))
-	defer server.Close()
-
-	session := &testSession{
-		token:   "oldtoken",
-		headers: map[string][]string{"Authorization": {"Bearer oldtoken"}},
-	}
-
-	client := common.NewBaseRetailer(common.RetailClientConfig{
-		BaseUrl:             server.URL,
-		DegreeOfParallelism: 1,
-		NumOfRetries:        1,
-		DelayInMs:           10,
-		Timeout:             5 * time.Second,
-		Session:             session,
-	}, nil)
-	defer client.Dispose()
-
-	results, error := client.Execute(testing.Context(), []common.RetailClientRequest{
-		{Method: "GET", Path: "/data"},
-	})
-	require.NoError(testing, error)
-	assert.True(testing, results[0].IsOk(), "expected ok, got error: %v", results[0].Error)
-}
-
 func TestRetailClient_BodyRequest(testing *testing.T) {
 	var receivedBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
@@ -383,64 +300,6 @@ func TestRetailClient_EmptyRequests(testing *testing.T) {
 	assert.Empty(testing, results)
 }
 
-// testSession is a simple test implementation of RetailSession.
-type testSession struct {
-	mutex   sync.Mutex
-	token   string
-	headers map[string][]string
-	minted  bool
-	expired bool
-}
-
-func (session *testSession) Prime() error { return nil }
-
-func (session *testSession) MintRequest() common.RetailClientRequest {
-	return common.RetailClientRequest{
-		Method: "POST",
-		Path:   "/mint",
-		Label:  "test mint",
-	}
-}
-
-func (session *testSession) TryAccept(response common.RetailClientResponse) bool {
-	var parsed struct {
-		Token string `json:"token"`
-	}
-	if error := json.Unmarshal(response.Body, &parsed); error != nil {
-		return false
-	}
-	if parsed.Token == "" {
-		return false
-	}
-	session.mutex.Lock()
-	session.token = parsed.Token
-	session.headers = map[string][]string{"Authorization": {"Bearer " + parsed.Token}}
-	session.minted = true
-	session.mutex.Unlock()
-	return true
-}
-
-func (session *testSession) Headers(currentTime time.Time) map[string][]string {
-	session.mutex.Lock()
-	defer session.mutex.Unlock()
-	if session.token == "" {
-		return nil
-	}
-	return session.headers
-}
-
-func (session *testSession) IsExpired(response common.RetailClientResponse) bool {
-	return response.StatusCode == 401 || response.StatusCode == 403
-}
-
-func (session *testSession) Invalidate() {
-	session.mutex.Lock()
-	session.token = ""
-	session.headers = nil
-	session.expired = true
-	session.mutex.Unlock()
-}
-
 func TestRetailClient_NoBaseUrlError(testing *testing.T) {
 	client := common.NewBaseRetailer(common.RetailClientConfig{
 		DegreeOfParallelism: 1,
@@ -518,22 +377,6 @@ func TestTerminalError(testing *testing.T) {
 	error = common.TerminalError(jobItem, &common.RetailClientResponse{StatusCode: 404}, nil, false)
 	require.NotNil(testing, error)
 	assert.Equal(testing, "test: status 404: unsuccessful http status", error.Error())
-}
-
-func TestWithSession(testing *testing.T) {
-	request := common.RetailClientRequest{
-		Method:  "GET",
-		Path:    "/test",
-		Headers: map[string][]string{"X-Custom": {"value"}},
-	}
-	sessionHeaders := map[string][]string{"Authorization": {"Bearer token"}}
-
-	merged := common.WithSession(request, sessionHeaders)
-	assert.Equal(testing, "Bearer token", merged.Headers["Authorization"][0])
-	assert.Equal(testing, "value", merged.Headers["X-Custom"][0])
-
-	noSession := common.WithSession(request, nil)
-	assert.Equal(testing, "value", noSession.Headers["X-Custom"][0])
 }
 
 func TestRetryAfterParsing(testing *testing.T) {

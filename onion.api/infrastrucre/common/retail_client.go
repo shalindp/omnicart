@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"onion.api/infrastrucre/common/responses"
+	"onion.api/persistence"
 	"onion.api/persistence/entities"
 )
 
@@ -95,7 +96,7 @@ type RetailClientConfig struct {
 	Timeout             time.Duration
 	DefaultHeaders      map[string][]string
 	Retryable           func(*RetailClientResponse, error) bool
-	Session             RetailSession
+	PersistenceModule   *persistence.PersistenceModule
 	Name                string
 	Logger              Logger
 }
@@ -146,36 +147,20 @@ func (error *RetailClientTimeoutError) Error() string {
 // Unwrap returns the inner error.
 func (error *RetailClientTimeoutError) Unwrap() error { return error.Inner }
 
-// RetailClientSessionError is a session-related error.
-type RetailClientSessionError struct {
-	Message string
-	Inner   error
-}
-
-// Error returns the error message.
-func (error *RetailClientSessionError) Error() string {
-	return error.Message
-}
-
-// Unwrap returns the inner error.
-func (error *RetailClientSessionError) Unwrap() error { return error.Inner }
-
 // BaseRetailer is one queue per retailer, drained in fixed-size batches by a single pump.
-// It also holds the database queries for retailers that need persistence.
 type BaseRetailer struct {
-	httpClient     *http.Client
-	baseUrl        string
-	degree         int
-	numRetries     int
-	delayMin       time.Duration
-	delayMax       time.Duration
-	timeout        time.Duration
-	defaultHeaders map[string][]string
-	retryable      func(*RetailClientResponse, error) bool
-	session        RetailSession
-	name           string
-	Logger         Logger
-	Queries        *entities.Queries
+	httpClient        *http.Client
+	baseUrl           string
+	degree            int
+	numRetries        int
+	delayMin          time.Duration
+	delayMax          time.Duration
+	timeout           time.Duration
+	defaultHeaders    map[string][]string
+	retryable         func(*RetailClientResponse, error) bool
+	PersistenceModule *persistence.PersistenceModule
+	name              string
+	Logger            Logger
 
 	mutex       sync.Mutex
 	queue       *list.List
@@ -202,7 +187,6 @@ type Job struct {
 	cancel       context.CancelFunc
 	completion   chan RetailClientResult
 	attempts     int32
-	reauthorised bool
 	RequestLabel string
 	settled      int32
 }
@@ -272,23 +256,32 @@ func NewBaseRetailer(config RetailClientConfig, httpClient *http.Client) *BaseRe
 	}
 
 	return &BaseRetailer{
-		httpClient:     httpClient,
-		baseUrl:        config.BaseUrl,
-		degree:         degree,
-		numRetries:     numRetries,
-		delayMin:       delayMin,
-		delayMax:       delayMax,
-		timeout:        timeout,
-		defaultHeaders: headers,
-		retryable:      retryable,
-		session:        config.Session,
-		name:           name,
-		Logger:         config.Logger,
-		queue:          list.New(),
-		work:           make(chan struct{}, 1),
-		done:           make(chan struct{}),
-		heartbeat:      NewProgressTicker(HeartbeatInterval),
+		httpClient:        httpClient,
+		baseUrl:           config.BaseUrl,
+		degree:            degree,
+		numRetries:        numRetries,
+		delayMin:          delayMin,
+		delayMax:          delayMax,
+		timeout:           timeout,
+		defaultHeaders:    headers,
+		retryable:         retryable,
+		PersistenceModule: config.PersistenceModule,
+		name:              name,
+		Logger:            config.Logger,
+		queue:             list.New(),
+		work:              make(chan struct{}, 1),
+		done:              make(chan struct{}),
+		heartbeat:         NewProgressTicker(HeartbeatInterval),
 	}
+}
+
+// Queries returns the entities.Queries from the PersistenceModule.
+// Returns nil if no PersistenceModule is set.
+func (client *BaseRetailer) Queries() *entities.Queries {
+	if client.PersistenceModule == nil {
+		return nil
+	}
+	return client.PersistenceModule.Queries()
 }
 
 // DefaultRetryable returns true for retryable status codes.
@@ -445,12 +438,7 @@ func (client *BaseRetailer) pump() {
 				break
 			}
 
-			sessionHeaders := client.sessionHeaders(batch)
-			if sessionHeaders == nil && client.session != nil {
-				continue
-			}
-
-			client.runBatch(batch, sessionHeaders)
+			client.runBatch(batch)
 			client.report()
 
 			wait := longest(client.nextDelay(), client.backoff)
@@ -458,60 +446,6 @@ func (client *BaseRetailer) pump() {
 			client.nextBatchAt = time.Now().Add(wait)
 		}
 	}
-}
-
-func (client *BaseRetailer) sessionHeaders(batch []*Job) map[string][]string {
-	if client.session == nil {
-		return nil
-	}
-
-	if primeError := client.session.Prime(); primeError != nil && client.Logger != nil {
-		client.Logger.Warnf("session prime failed: %v", primeError)
-	}
-
-	headers := client.session.Headers(time.Now())
-	if headers != nil {
-		return headers
-	}
-
-	mintRequest := client.session.MintRequest()
-	mintContext, mintCancel := context.WithTimeout(context.Background(), client.timeout)
-	defer mintCancel()
-	result := client.attemptWithTimeout(mintRequest, mintContext)
-
-	if result.response != nil && succeeded(result.response, result.error) && client.session.TryAccept(*result.response) {
-		return client.session.Headers(time.Now())
-	}
-
-	var mintFailure error
-	if result.error != nil || result.response == nil {
-		mintFailure = &RetailClientSessionError{
-			Message: fmt.Sprintf("session: mint request failed: %v", result.error),
-			Inner:   result.error,
-		}
-	} else if succeeded(result.response, nil) {
-		mintFailure = &RetailClientSessionError{
-			Message: "session: mint response carried no usable access_token",
-		}
-	} else {
-		mintFailure = &RetailClientSessionError{
-			Message: fmt.Sprintf("session: mint request failed with status %d", result.response.StatusCode),
-		}
-	}
-
-	for _, jobItem := range batch {
-		if !jobItem.isSettled() {
-			if jobItem.markSettled() {
-				jobItem.completion <- RetailClientResult{
-					Request:  jobItem.Request,
-					Error:    mintFailure,
-					Attempts: int(atomic.LoadInt32(&jobItem.attempts)),
-				}
-			}
-		}
-	}
-
-	return nil
 }
 
 func (client *BaseRetailer) pace() {
@@ -542,7 +476,7 @@ func (client *BaseRetailer) takeBatch() []*Job {
 	return batch
 }
 
-func (client *BaseRetailer) runBatch(batch []*Job, sessionHeaders map[string][]string) {
+func (client *BaseRetailer) runBatch(batch []*Job) {
 	if len(batch) == 0 {
 		return
 	}
@@ -554,7 +488,7 @@ func (client *BaseRetailer) runBatch(batch []*Job, sessionHeaders map[string][]s
 		waitGroup.Add(1)
 		go func(idx int, jobItem *Job) {
 			defer waitGroup.Done()
-			outcomes[idx] = client.attemptWithTimeout(WithSession(jobItem.Request, sessionHeaders), jobItem.token)
+			outcomes[idx] = client.attemptWithTimeout(jobItem.Request, jobItem.token)
 		}(index, jobItem)
 	}
 	waitGroup.Wait()
@@ -594,16 +528,6 @@ func (client *BaseRetailer) runBatch(batch []*Job, sessionHeaders map[string][]s
 					Attempts: int(atomic.LoadInt32(&jobItem.attempts)),
 				}
 			}
-			continue
-		}
-
-		if client.session != nil && response != nil && client.session.IsExpired(*response) && !jobItem.reauthorised {
-			jobItem.reauthorised = true
-			if atomic.LoadInt32(&jobItem.attempts) > 0 {
-				atomic.AddInt32(&jobItem.attempts, -1)
-			}
-			client.session.Invalidate()
-			requeue = append(requeue, jobItem)
 			continue
 		}
 
@@ -852,22 +776,6 @@ func RetryAfter(response *RetailClientResponse) *time.Duration {
 	}
 
 	return nil
-}
-
-// WithSession merges session headers into a request.
-func WithSession(request RetailClientRequest, sessionHeaders map[string][]string) RetailClientRequest {
-	if len(sessionHeaders) == 0 {
-		return request
-	}
-	merged := make(map[string][]string)
-	for key, values := range request.Headers {
-		merged[key] = slices.Clone(values)
-	}
-	for key, values := range sessionHeaders {
-		merged[key] = slices.Clone(values)
-	}
-	request.Headers = merged
-	return request
 }
 
 func succeeded(response *RetailClientResponse, error error) bool {

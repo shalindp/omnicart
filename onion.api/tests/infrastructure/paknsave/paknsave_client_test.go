@@ -8,22 +8,29 @@ import (
 
 	"onion.api/infrastrucre/common"
 	"onion.api/infrastrucre/paknsave"
-	paknsaveresponses "onion.api/infrastrucre/paknsave/responses"
+	"onion.api/tests/testhelpers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPakNSaveClient_GetStores(testing *testing.T) {
+	persistenceModule := testhelpers.SetupTestDB(testing)
 	httpClient := &http.Client{Timeout: 30 * time.Second}
-	sessionStore := common.NewInMemorySessionStore()
-	session := paknsaveresponses.NewPakNSaveSessionProvider(sessionStore)
 
-	client := paknsave.NewPakNSaveClient(
-		"Pak'nSave Hibiscus Coast",
-		6, 3, 400, 600, 30000,
-		httpClient, session, &testLogger{t: testing},
-	)
+	retailer := common.NewBaseRetailer(common.RetailClientConfig{
+		BaseUrl:             "https://api-prod.paknsave.co.nz/v1/edge",
+		DegreeOfParallelism: 6,
+		NumOfRetries:        3,
+		DelayInMs:           400,
+		DelayMaxInMs:        600,
+		Timeout:             30 * time.Second,
+		PersistenceModule:   persistenceModule,
+		Name:                "paknsave",
+		Logger:              &testLogger{t: testing},
+	}, httpClient)
+
+	client := paknsave.NewPakNSaveClient(retailer, "Pak'nSave Hibiscus Coast")
 
 	stores, error := client.GetStores(context.Background())
 	require.NoError(testing, error)

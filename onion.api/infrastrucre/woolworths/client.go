@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"time"
 
 	common "onion.api/infrastrucre/common"
 	"onion.api/infrastrucre/common/responses"
@@ -19,22 +17,7 @@ type WoolworthsClient struct {
 	storeName string
 }
 
-func NewWoolworthsClient(storeName string, degreeOfParallelism, numOfRetries, delayInMs, delayMaxInMs, timeoutInMs int, httpClient *http.Client, logger common.Logger) *WoolworthsClient {
-	retailer := common.NewBaseRetailer(common.RetailClientConfig{
-		BaseUrl:             "https://www.woolworths.co.nz",
-		DegreeOfParallelism: degreeOfParallelism,
-		NumOfRetries:        numOfRetries,
-		DelayInMs:           delayInMs,
-		DelayMaxInMs:        delayMaxInMs,
-		Timeout:             time.Duration(timeoutInMs) * time.Millisecond,
-		DefaultHeaders: map[string][]string{
-			"User-Agent": {common.DefaultUserAgent},
-		},
-		Session: common.NoOpSession{},
-		Name:    "woolworths",
-		Logger:  logger,
-	}, httpClient)
-
+func NewWoolworthsClient(retailer *common.BaseRetailer, storeName string) *WoolworthsClient {
 	return &WoolworthsClient{BaseRetailer: retailer, storeName: storeName}
 }
 

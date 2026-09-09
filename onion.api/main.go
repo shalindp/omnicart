@@ -23,7 +23,7 @@ func main() {
 	}
 	defer persistenceModule.Close()
 
-	infrastructureModule, error := infrastrucre.Initialize(environmentVariables.InfrastructureSettings)
+	infrastructureModule, error := infrastrucre.Initialize(environmentVariables.InfrastructureSettings, persistenceModule)
 	if error != nil {
 		fmt.Printf("Error initializing infrastructure layer: %v\n", error)
 		os.Exit(1)
